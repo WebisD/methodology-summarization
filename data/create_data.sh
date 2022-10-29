@@ -1,0 +1,1 @@
+python ../scripts/json_to_bin.py ./sample50-eval.txt ./sample50-eval.bin --vocab_file ./sample50-eval.vocab

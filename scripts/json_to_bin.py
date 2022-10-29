@@ -76,27 +76,15 @@ def write_to_bin(infile, outfile, vocab_file=False):
     line = line.strip()
     data = json.loads(line)
     tf_example = tf.train.Example()
+
     article_id = data['article_id'].encode('ascii', 'ignore')
     tf_example.features.feature['article_id'].bytes_list.value.extend([article_id])
 
-    abstract_str = _list_to_string(data['abstract_text'])
-    tf_example.features.feature['abstract'].bytes_list.value.extend([abstract_str.encode('utf-8', 'ignore')])
+    methodology_str = _list_to_string(data['methodology'])
+    tf_example.features.feature['methodology'].bytes_list.value.extend([methodology_str.encode('utf-8', 'ignore')])
 
-    sections_str = _nested_list_to_string(data['sections'])
-    tf_example.features.feature['sections'].bytes_list.value.extend([sections_str.encode('utf-8', 'ignore')])
-
-    # add article body
-    article_body = list(chain.from_iterable(data['sections']))
-    article_body_str = _list_to_string(article_body)
-    tf_example.features.feature['article_body'].bytes_list.value.extend([article_body_str.encode('utf-8', 'ignore')])
-
-    # add section names
-    section_names = [e if e else 'None' for e in data['section_names']]
-    section_names = _list_to_string(section_names)
-    tf_example.features.feature['section_names'].bytes_list.value.extend([section_names.encode('utf-8', 'ignore')])
-
-    labels = _list_to_string(['0' for _ in range(len(data['section_names']))])
-    tf_example.features.feature['labels'].bytes_list.value.extend([labels.encode('utf-8', 'ignore')])
+    method_summary_str = _list_to_string(data['method_summary'])
+    tf_example.features.feature['method_summary'].bytes_list.value.extend([method_summary_str.encode('utf-8', 'ignore')])
 
     tf_example_str = tf_example.SerializeToString()
     str_len = len(tf_example_str)
@@ -112,13 +100,13 @@ def write_to_bin(infile, outfile, vocab_file=False):
 
     # Write the vocab to file, if applicable
     if vocab_file:
-      art_tokens = article_body_str.split(' ')
+      art_tokens = methodology_str.split(' ')
       art_tokens = [t for t in art_tokens
                     if t not in [
                       SENTENCE_START, SENTENCE_END, SENTENCE_SEPARATOR,
                       SECTION_SEPARATOR.strip(),
                       LIST_SEPARATOR.strip()]]
-      abs_tokens = abstract_str.split(' ')
+      abs_tokens = method_summary_str.split(' ')
       # remove these tags from vocab
       abs_tokens = [t for t in abs_tokens if t not in [
         SENTENCE_START, SENTENCE_END, SENTENCE_SEPARATOR,

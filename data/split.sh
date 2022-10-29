@@ -1,0 +1,1 @@
+(head -50 sample-test.txt) > sample50-eval.txt

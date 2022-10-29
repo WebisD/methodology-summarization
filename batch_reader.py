@@ -96,7 +96,7 @@ def _pad_words(words, max_len=None, pad_id=data.PAD_TOKEN):
 class Example(object):
     """Class representing a train/val/test example for text summarization."""
 
-    def __init__(self, article, abstract_sentences, article_id, sections, section_names, labels, vocab, hps):
+    def __init__(self, article, abstract_sentences, article_id, vocab, hps):
         """Initializes the Example, performing tokenization and truncation to produce the encoder, decoder and target sequences, which are stored in self.
 
         Args:
@@ -115,107 +115,6 @@ class Example(object):
         start_decoding = vocab.word2id(data.START_DECODING)
         stop_decoding = vocab.word2id(data.STOP_DECODING)
 
-
-        # clean section information
-        # clean sections after conclusions
-        if hps.hier:
-          end_loc = len(section_names)
-          beg_loc = 0
-          for i,s in enumerate(section_names):
-            if 'conclu' in s.lower():
-              end_loc = i + 1
-            if 'intro' in s.lower() and beg_loc == 0:
-              beg_loc = i
-              
-          if beg_loc < len(section_names) - end_loc:
-            sections = sections[beg_loc:end_loc]
-          try:
-            intro_last = sections[beg_loc][-2:] # last two sentences in the intro
-          except IndexError:
-#             print('article_id: {}, len(sections): {}, section_names: {}'.format(article_id, len(sections), section_names))
-            self.discard = True
-            return
-#           intro_first = []
-          i = 0
-#           intro_last_len = _count_words(intro_last)
-#           intro_len = intro_last_len
-#           while(intro_len < hps.max_intro_len):
-#             intro_first.append(sections[beg_loc][i])
-#             intro_len = _count_words(intro_first) + intro_last_len
-#             i += 1
-          
-          if not hps.split_intro:
-          
-            max_sents = hps.max_intro_sents - 2 # exclude the last two sents
-            intro_first = sections[beg_loc][:max_sents]
-            intro_last_words = _get_section_words(intro_last, pad=False)
-            intro_last_len = len(intro_last_words) # flatten list of sents, get the string inside, count words
-            
-            discard_last = False
-            if intro_last_len > hps.max_intro_len:
-              discard_last = True
-            len_limit = hps.max_intro_len - intro_last_len if not discard_last else hps.max_intro_len
-            # truncate the intro by len_limit (we consider last 2 sentences from the intro to be there always)
-            # Flatten list of lists, get the first element (string), get words, get first n words, return a striing, make it a list, extend it with intro_last
-            intro_words = _get_section_words(intro_first, len_limit, pad=False)
-            
-            try:
-              if intro_words[-1] != '.':
-                intro_words = intro_words[:-1] + ['.']
-                if not discard_last:
-                  intro_words += intro_last_words
-                intro_words = _pad_words(intro_words, hps.max_intro_len)
-            except IndexError:
-              print('No first section, Example discarded: ', article_id)
-              self.discard = True
-          
-          else:    
-            intro_first = sections[beg_loc][:hps.max_intro_sents]
-            intro_words = _get_section_words(intro_first, hps.max_intro_len, pad=True)
-
-          try:
-            conclusion_words = _get_section_words(sections[end_loc - beg_loc - 1][:hps.max_conclusion_sents], hps.max_conclusion_len)
-          except:
-            import pdb; pdb.set_trace()
-            print("ERROR, pause and check")
-            print('end_loc:', end_loc)
-            print('section_names:', section_names)
-            print('num_sections: {}'.format(len(sections)))
-            print('len_sections_sents:', [len(e) for e in sections])
-            
-#           if not hps.intro_split:
-          article_sections = [_get_section_words(s[:hps.max_section_sents], hps.max_section_len)
-                              for s in sections[1:-1][:hps.num_sections - 2]]
-#           else:
-#             tmp_sections = []
-#             remaining_sec = sections[1:-1]
-#             if len(remaining_sec) > hps.num_sections - 2:
-#               for i in range(hps.num_sections - 2):
-#                 tmp_sections.append(remaining_sec[i])
-#               last_sec = []
-#               while(i < len(remaining_sec)):
-#                 last_sec.extend(remaining_sec[i])
-#                 i += 1
-#               tmp_sections.append(last_sec)
-#               remaining_sec = tmp_sections
-#   
-#             article_sections = [_get_section_words(s, hps.max_section_len)
-#                                 for s in remaining_sec]
-          
-          sections = [intro_words] + article_sections + [conclusion_words]
-          sec_len = len(sections)
-          self.sec_len = sec_len
-          self.num_words_section = [hps.max_section_len for e in sections] 
-          self.num_words_section_nopad = [len(e) for e in sections]
-          # TODO: Assumption is that sections is a list of list (sections, sentences), check if assumption is true
-          # TODO: Assumtpion is that number of sections is greater than 2, check if assumption is true
-          
-#           pad_id = vocab.word2id(data.PAD_TOKEN)
-          
-          
-            
-        
-
         article_text = ' '.join(article)
         # Process the article
         article_words = article_text.split()
@@ -225,14 +124,7 @@ class Example(object):
         self.enc_len = len(article_words)
         # list of word ids; OOVs are represented by the id for UNK token
         self.enc_input = [vocab.word2id(w) for w in article_words]
-        
-        if hps.hier:
-          self.enc_sections = []
-          
-          for sec in sections:
-            self.enc_sections.append([vocab.word2id(w) for w in sec])
-          self.enc_sec_len = [len(e) for e in self.enc_sections]
-#           self.enc_sec_len = sec_len # TODO: Check
+
 
         # Process the abstract
         abstract = ' '.join(abstract_sentences)  # string
@@ -265,9 +157,6 @@ class Example(object):
                 abs_ids_extend_vocab, hps.max_dec_steps, start_decoding, stop_decoding)
 
         self.article_id = article_id
-        self.sections = sections
-        self.section_names = section_names
-        self.labels = labels
 
         # Store the original strings
         self.original_article = article
@@ -495,11 +384,7 @@ class Batcher(object):
     BATCH_QUEUE_MAX = 100  # max number of batches the batch_queue can hold
 
     def __init__(self, data_path, vocab, hps, single_pass,
-                 article_id_key,
-                 article_key, abstract_key,
-                 labels_key,
-                 section_names_key,
-                 sections_key):
+                 article_id_key, methodology_key, method_summary_key):
         """Initialize the batcher. Start threads that process the data into batches.
 
         Args:
@@ -528,11 +413,8 @@ class Batcher(object):
             self.BATCH_QUEUE_MAX * self._hps.batch_size)
 
         self._article_id_key = article_id_key
-        self._article_key = article_key
-        self._abstract_key = abstract_key
-        self._labels_key = labels_key
-        self._section_names_key = section_names_key
-        self._sections_key = sections_key
+        self._methodology_key = methodology_key
+        self._method_summary_key = method_summary_key
 
         # Different settings depending on whether we're in single_pass mode or
         # not
@@ -607,8 +489,7 @@ class Batcher(object):
             try:
                 # read the next example from file. article and abstract are
                 # both strings.
-                (article_id, article_text, abstract_sents, labels,
-                 section_names, sections) = six.next(input_gen)
+                (article_id, methodology, method_summary) = six.next(input_gen)
             except StopIteration:  # if there are no more examples:
                 tf.logging.info(
                     "The example generator for this example queue filling thread has exhausted data.")
@@ -624,20 +505,11 @@ class Batcher(object):
             # Use the <s> and </s> tags in abstract to get a list of sentences.
 #       abstract_sentences = [sent.strip() for sent in data.abstract2sents(''.join(abstract_sents))]
             abstract_sentences = [e.replace(data.SENTENCE_START, '').replace(data.SENTENCE_END, '').strip()
-                                  for e in abstract_sents]
+                                  for e in method_summary]
 
             
-            # at least 2 sections, some articles do not have sections
-            if "_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ __ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _" in article_text:
-              continue 
-            
-            if len(sections) <= 1:
-              continue
-            
-            if not sections or len(sections) == 0:
-              continue
             # do not process that are too long
-            if len(article_text) > self._hps.max_article_sents:
+            if len(methodology) > self._hps.max_article_sents:
               continue
               
             # Do not process documents with unusually long or short abstracts
@@ -647,8 +519,7 @@ class Batcher(object):
                 continue
             
             # Process into an Example.
-            example = Example(article_text, abstract_sentences, article_id, sections, section_names, labels,
-                              self._vocab, self._hps)
+            example = Example(methodology, abstract_sentences, article_id, self._vocab, self._hps)
             # place the Example in the example queue.
             if example.discard:
               fail += 1
@@ -716,30 +587,17 @@ class Batcher(object):
             e = six.next(example_gen)
             try:
                 article_id = self._get_example_feature(e, self._article_id_key)
-                article_text = self._get_example_feature(e, self._article_key)
-                abstract_text = self._get_example_feature(
-                    e, self._abstract_key)
-                if not self._hps.pubmed:
-                  labels = self._get_example_feature(e, self._labels_key)
-                section_names = self._get_example_feature(
-                    e, self._section_names_key)
-                sections = self._get_example_feature(e, self._sections_key)
+                methodology_text = self._get_example_feature(e, self._methodology_key)
+                method_summary_text = self._get_example_feature(e, self._method_summary_key)
 
-                # convert to list
-                article_text = _string_to_list(article_text)
-                abstract_text = _string_to_list(abstract_text)
-                if not self._hps.pubmed:
-                  labels = _string_to_list(labels, dtype='int')
-                else:
-                  labels = None
-                section_names = _string_to_list(section_names)
-                sections = _string_to_nested_list(sections)  # list of lists
+                methodology_text = _string_to_list(methodology_text)
+                method_summary_text = _string_to_list(method_summary_text)
             except ValueError:
                 tf.logging.error(
                     'Failed to get article or abstract from example')
                 continue
 
-            yield (article_id, article_text, abstract_text, labels, section_names, sections)
+            yield (article_id, methodology_text, method_summary_text)
 
     def _get_example_feature(self, ex, key):
         """Extract text for a feature from td.Example.
