@@ -1,9 +1,9 @@
 python run_summarization.py \
 --mode=train \
---data_path=./data/small.bin \
---vocab_path=./data/vocab \
+--data_path=./data/train.bin \
+--vocab_path=./data/train.vocab \
 --log_root=logroot \
---exp_name=test-experiment \
+--exp_name=methodology \
 --max_dec_steps=200 \
 --max_enc_steps=2000 \
 --num_sections=5 \
@@ -13,9 +13,8 @@ python run_summarization.py \
 --use_do=True \
 --optimizer=adagrad \
 --do_prob=0.25 \
---hier=True \
---restore_best_model=True \
---split_intro=True \
+--hier=False \
+--split_intro=False \
 --fixed_attn=True \
 --legacy_encoder=False \
 --coverage=False

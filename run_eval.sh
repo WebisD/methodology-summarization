@@ -1,9 +1,9 @@
 python run_summarization.py \
 --mode=eval \
---data_path=./data/sample250-test.bin \
---vocab_path=./data/sample250-test.vocab \
+--data_path=./data/eval.bin \
+--vocab_path=./data/eval.vocab \
 --log_root=logroot \
---exp_name=test-experiment \
+--exp_name=methodology \
 --max_dec_steps=200 \
 --max_enc_steps=2000 \
 --num_sections=5 \
@@ -13,8 +13,8 @@ python run_summarization.py \
 --use_do=True \
 --optimizer=adagrad \
 --do_prob=0.25 \
---hier=True \
---split_intro=True \
+--hier=False \
+--split_intro=False \
 --fixed_attn=True \
 --legacy_encoder=False \
 --coverage=False
